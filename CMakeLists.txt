@@ -218,3 +218,13 @@ add_dependencies(gpsr ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARG
 target_link_libraries(gpsr
   ${catkin_LIBRARIES}
 )
+
+add_executable(free_test
+  src/free_test.cpp
+  src/action_manager/action_manager.cpp
+  src/scripts/6_free_script.cpp
+)
+add_dependencies(free_test ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(free_test
+  ${catkin_LIBRARIES}
+)

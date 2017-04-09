@@ -1,13 +1,20 @@
 #include <ros/ros.h>
 #include <std_msgs/String.h>
+#include <move_base_msgs/MoveBaseAction.h>
+#include <actionlib/client/simple_action_client.h>
 #include <vector>
 #include "action_manager.h"
 #include "xfyun_waterplus/IATSwitch.h"
+#include <waterplus_map_tools/GetWaypointByName.h>
 
 using namespace std;
 
+typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 static CActionManager action_manager;
 static ros::ServiceClient clientIAT;
+static xfyun_waterplus::IATSwitch srvIAT;
+static ros::ServiceClient cliGetWPName;
+static waterplus_map_tools::GetWaypointByName srvName;
 
 //有限状态机
 #define STATE_READY     0
@@ -16,7 +23,7 @@ static ros::ServiceClient clientIAT;
 #define STATE_WAIT_CMD  3
 #define STATE_ACTION    4
 
-static int nState = STATE_WAIT_CMD;
+static int nState = STATE_WAIT_ENTR;
 
 //识别结果
 static string result_placement;     //去往地点
@@ -135,7 +142,6 @@ void KeywordCB(const std_msgs::String::ConstPtr & msg)
         {
             action_manager.ShowActs();
             //识别完毕,关闭语音识别
-            xfyun_waterplus::IATSwitch srvIAT;
             srvIAT.request.active = false;
             clientIAT.call(srvIAT);
         }
@@ -151,6 +157,7 @@ int main(int argc, char** argv)
 {
     ros::init(argc, argv, "wpb_home_gpsr_2017");
     Init_keywords();
+    action_manager.Init();
 
     ros::NodeHandle n;
     ros::Subscriber sub_sr = n.subscribe("/xfyun/iat", 10, KeywordCB);
@@ -163,6 +170,46 @@ int main(int argc, char** argv)
         if(nState == STATE_WAIT_ENTR)
         {
             //等待开门,一旦检测到开门,便去往发令地点
+            if(true)
+            {
+                string strGoto = "cmd";     //cmd是发令地点名称,请在地图里设置这个航点
+                srvName.request.name = strGoto;
+                if (cliGetWPName.call(srvName))
+                {
+                    std::string name = srvName.response.name;
+                    float x = srvName.response.pose.position.x;
+                    float y = srvName.response.pose.position.y;
+                    ROS_INFO("Get_wp_name: name = %s (%.2f,%.2f)", strGoto.c_str(),x,y);
+
+                    MoveBaseClient ac("move_base", true);
+                    if(!ac.waitForServer(ros::Duration(5.0)))
+                    {
+                        ROS_INFO("The move_base action server is no running. action abort...");
+                    }
+                    else
+                    {
+                        move_base_msgs::MoveBaseGoal goal;
+                        goal.target_pose.header.frame_id = "map";
+                        goal.target_pose.header.stamp = ros::Time::now();
+                        goal.target_pose.pose = srvName.response.pose;
+                        ac.sendGoal(goal);
+                        ac.waitForResult();
+                        if(ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
+                        {
+                            ROS_INFO("Arrived at %s!",strGoto.c_str());
+                            ros::spinOnce();
+                            nState = STATE_WAIT_CMD;
+                        }
+                        else
+                            ROS_INFO("Failed to get to %s ...",strGoto.c_str() );
+                    }
+                    
+                }
+                else
+                {
+                    ROS_ERROR("Failed to call service GetWaypointByName");
+                }
+            }
         }
         if(nState == STATE_ACTION)
         {

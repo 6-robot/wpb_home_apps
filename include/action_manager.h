@@ -15,6 +15,7 @@ public:
 	std::string strListen;
 
 	bool Main();
+	void Init();
 	void Reset();
 	string GetToSpeak();
 	void ShowActs();
