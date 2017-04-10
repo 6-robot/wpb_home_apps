@@ -16,6 +16,7 @@ typedef struct stAct
 {
 	int nAct;
 	string  strTarget;
+	float nDuration;
 }stAct;
 
 

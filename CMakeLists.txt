@@ -228,3 +228,19 @@ add_dependencies(free_test ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED
 target_link_libraries(free_test
   ${catkin_LIBRARIES}
 )
+
+add_executable(entrance_detect
+  src/entrance_detect.cpp
+)
+add_dependencies(entrance_detect ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(entrance_detect
+  ${catkin_LIBRARIES}
+)
+
+add_executable(who_is_who
+  src/who_is_who.cpp
+)
+add_dependencies(who_is_who ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(who_is_who
+  ${catkin_LIBRARIES}
+)

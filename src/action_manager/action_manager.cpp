@@ -1,6 +1,7 @@
 #include "action_manager.h"
 #include <ros/ros.h>
 #include <std_msgs/String.h>
+#include "xfyun_waterplus/IATSwitch.h"
 #include <move_base_msgs/MoveBaseAction.h>
 #include <actionlib/client/simple_action_client.h>
 #include <waterplus_map_tools/GetWaypointByName.h>
@@ -9,6 +10,8 @@ typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseCl
 static ros::Publisher spk_pub;
 static string strToSpeak = "";
 static string strKeyWord = "";
+static ros::ServiceClient clientIAT;
+static xfyun_waterplus::IATSwitch srvIAT;
 static ros::ServiceClient cliGetWPName;
 static waterplus_map_tools::GetWaypointByName srvName;
 
@@ -29,6 +32,7 @@ void CActionManager::Init()
     ros::NodeHandle n;
     cliGetWPName = n.serviceClient<waterplus_map_tools::GetWaypointByName>("/waterplus/get_waypoint_name");
     spk_pub = n.advertise<std_msgs::String>("/xfyun/tts", 20);
+    clientIAT = n.serviceClient<xfyun_waterplus::IATSwitch>("xfyun_waterplus/IATSwitch");
 }
 
 static int nLastActCode = -1;
@@ -117,6 +121,7 @@ bool CActionManager::Main()
             rosSpeak.data = strToSpeak;
             spk_pub.publish(rosSpeak);
             strToSpeak = "";
+            usleep(arAct[nCurActIndex].nDuration*1000*1000);
             nCurActIndex ++;
 		}
 		break;
@@ -127,9 +132,24 @@ bool CActionManager::Main()
             printf("[ActMgr] %d - Listen %s\n",nCurActIndex,arAct[nCurActIndex].strTarget.c_str());
             strListen = "";
             strKeyWord = arAct[nCurActIndex].strTarget;
+            int nDur = arAct[nCurActIndex].nDuration;
+            if(nDur < 3)
+            {
+                nDur = 3;
+            }
+            //开始语音识别
+            srvIAT.request.active = true;
+            srvIAT.request.duration = nDur;
+            clientIAT.call(srvIAT);
 		}
         nKeyWord = strListen.find(strKeyWord);
-        if(nKeyWord >= 0)  nCurActIndex ++;
+        if(nKeyWord >= 0)
+        {
+            //识别完毕,关闭语音识别
+            srvIAT.request.active = false;
+            clientIAT.call(srvIAT);
+            nCurActIndex ++;
+        }
 		break;
 
 	case ACT_QUESTION:

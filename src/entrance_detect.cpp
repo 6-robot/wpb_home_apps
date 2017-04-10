@@ -31,38 +31,61 @@
 *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 *  POSSIBILITY OF SUCH DAMAGE.
 *********************************************************************/
-/* @author Zhang Wanjie                                             */
+/*!******************************************************************
+ @author     ZhangWanjie
+ ********************************************************************/
+
 #include <ros/ros.h>
 #include <std_msgs/String.h>
-#include "6_free_script.h"
+#include <sensor_msgs/LaserScan.h>
+#include <math.h>
 
-static CFreeScript free_script;
+static ros::Publisher ent_pub;
+static float ranges[360];
 
-void KeywordCB(const std_msgs::String::ConstPtr & msg)
+void ScanCB(const sensor_msgs::LaserScan::ConstPtr& scan)
 {
-    //ROS_WARN("[free_script_KeywordCB] - %s",msg->data.c_str());
-    string strListen = msg->data;
-    free_script.strListen = strListen;
+    for(int i=0;i<360;i++)
+    {
+        ranges[i] = scan->ranges[i];
+    }
+
+    int nMidIndex = 360/2;
+    bool bDoorOpen = true;
+    for(int i=0;i<5;i++)
+    {
+        if(ranges[nMidIndex - i] < 1.0)
+        {
+            bDoorOpen = false;
+        }
+        if(ranges[nMidIndex + i] < 1.0)
+        {
+            bDoorOpen = false;
+        }
+    }
+
+    std_msgs::String strEnt;
+    if(bDoorOpen == true)
+    {
+        strEnt.data = "door open";
+    }
+    else
+    {
+        strEnt.data = "door close";
+    }
+    ent_pub.publish(strEnt);
 }
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "free_script_2017");
-    ROS_INFO("[main] free_script_2017");
-    free_script.Init();
-    free_script.Queue();
-    free_script.ShowActs();
-
+    ros::init(argc, argv, "wpb_home_entrance_detect");
+    
     ros::NodeHandle n;
-    ros::Subscriber sub_sr = n.subscribe("/xfyun/iat", 10, KeywordCB);
-    ros::Rate r(10);
-    ros::spinOnce();
-    while(ros::ok())
-    {
-        free_script.Main();
-        ros::spinOnce();
-        r.sleep();
-    }
+    ros::Subscriber scan_sub = n.subscribe<sensor_msgs::LaserScan>("/scan",1,ScanCB);
+   
+    ent_pub = n.advertise<std_msgs::String>("/wpb_home/entrance_detect", 10);
+
+    ros::spin();
 
     return 0;
 }

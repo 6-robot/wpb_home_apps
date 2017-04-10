@@ -1,15 +1,51 @@
+/*********************************************************************
+* Software License Agreement (BSD License)
+* 
+*  Copyright (c) 2017-2020, Waterplus http://www.6-robot.com
+*  All rights reserved.
+* 
+*  Redistribution and use in source and binary forms, with or without
+*  modification, are permitted provided that the following conditions
+*  are met:
+* 
+*   * Redistributions of source code must retain the above copyright
+*     notice, this list of conditions and the following disclaimer.
+*   * Redistributions in binary form must reproduce the above
+*     copyright notice, this list of conditions and the following
+*     disclaimer in the documentation and/or other materials provided
+*     with the distribution.
+*   * Neither the name of the WaterPlus nor the names of its
+*     contributors may be used to endorse or promote products derived
+*     from this software without specific prior written permission.
+* 
+*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+*  FOOTPRINTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+*  POSSIBILITY OF SUCH DAMAGE.
+*********************************************************************/
+/* @author Zhang Wanjie                                             */
 #include <ros/ros.h>
 #include <std_msgs/String.h>
-#include <move_base_msgs/MoveBaseAction.h>
-#include <actionlib/client/simple_action_client.h>
 #include <vector>
 #include "action_manager.h"
+#include <sound_play/SoundRequest.h>
+#include <move_base_msgs/MoveBaseAction.h>
+#include <actionlib/client/simple_action_client.h>
 #include "xfyun_waterplus/IATSwitch.h"
 #include <waterplus_map_tools/GetWaypointByName.h>
 
 using namespace std;
 
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
+static ros::Publisher spk_pub;
 static CActionManager action_manager;
 static ros::ServiceClient clientIAT;
 static xfyun_waterplus::IATSwitch srvIAT;
@@ -21,9 +57,10 @@ static waterplus_map_tools::GetWaypointByName srvName;
 #define STATE_WAIT_ENTR 1
 #define STATE_GOTO_CMD  2
 #define STATE_WAIT_CMD  3
-#define STATE_ACTION    4
+#define STATE_CONFIRM   4
+#define STATE_ACTION    5
 
-static int nState = STATE_WAIT_ENTR;
+static int nState = STATE_WAIT_ENTR;  //程序启动时初始状态;
 
 //识别结果
 static string result_placement;     //去往地点
@@ -36,7 +73,8 @@ static vector<string> arKWPlacement;
 static vector<string> arKWObjece;
 static vector<string> arKWPerson;
 static vector<string> arKWAction;
-void Init_keywords()
+static vector<string> arKWConfirm;
+static void Init_keywords()
 {
     //地点关键词
     arKWPlacement.push_back("liveing room");
@@ -55,9 +93,16 @@ void Init_keywords()
     //其他行为
     arKWAction.push_back("team name");
     arKWAction.push_back("your name");
+
+    //yes or no
+    arKWConfirm.push_back("yes");
+    arKWConfirm.push_back("Yes");
+    arKWConfirm.push_back("Yeah");
+    arKWConfirm.push_back("no");
+    arKWConfirm.push_back("No");
 }
 
-string FindWord(string inSentence, vector<string> & arWord)
+static string FindWord(string inSentence, vector<string> & arWord)
 {
     string strRes = "";
 	int nNum = arWord.size();
@@ -73,7 +118,30 @@ string FindWord(string inSentence, vector<string> & arWord)
 	return strRes;
 }
 
-static ros::Publisher spk_pub;
+static void Speak(string inStr)
+{
+    sound_play::SoundRequest sp;
+    sp.sound = sound_play::SoundRequest::SAY;
+    sp.command = sound_play::SoundRequest::PLAY_ONCE;
+    sp.arg = inStr;
+    spk_pub.publish(sp);
+}
+
+static int nOpenCount = 0;
+void EntranceCB(const std_msgs::String::ConstPtr & msg)
+{
+    //ROS_WARN("[GPSR EntranceCB] - %s",msg->data.c_str());
+    string strDoor = msg->data;
+    if(strDoor == "door open")
+    {
+        nOpenCount ++;
+    }
+    else
+    {
+        nOpenCount = 0;
+    }
+}
+
 void KeywordCB(const std_msgs::String::ConstPtr & msg)
 {
     //ROS_WARN("[GPSR KeywordCB] - %s",msg->data.c_str());
@@ -140,10 +208,28 @@ void KeywordCB(const std_msgs::String::ConstPtr & msg)
 
         if(bAction == true)
         {
+            Speak(strListen);
+            nState = STATE_CONFIRM;
+        }
+    }
+
+    if(nState == STATE_CONFIRM)
+    {
+        string confirm = FindWord(strListen,arKWConfirm);
+        if(confirm == "yes" || confirm == "Yes" ||confirm == "Yeah")
+        {
+            Speak("ok,I will do it");
             action_manager.ShowActs();
+            nState = STATE_ACTION;
             //识别完毕,关闭语音识别
             srvIAT.request.active = false;
             clientIAT.call(srvIAT);
+        }
+        if(confirm == "no" || confirm == "No")
+        {
+            action_manager.Reset();
+            Speak("ok,Repeat the command");
+            nState = STATE_WAIT_CMD;
         }
     }
 
@@ -161,7 +247,9 @@ int main(int argc, char** argv)
 
     ros::NodeHandle n;
     ros::Subscriber sub_sr = n.subscribe("/xfyun/iat", 10, KeywordCB);
+    ros::Subscriber sub_ent = n.subscribe("/wpb_home/entrance_detect", 10, EntranceCB);
     clientIAT = n.serviceClient<xfyun_waterplus::IATSwitch>("xfyun_waterplus/IATSwitch");
+    spk_pub = n.advertise<sound_play::SoundRequest>("/robotsound", 20);
 
     ROS_INFO("[main] wpb_home_gpsr_2017");
     ros::Rate r(10);
@@ -170,7 +258,7 @@ int main(int argc, char** argv)
         if(nState == STATE_WAIT_ENTR)
         {
             //等待开门,一旦检测到开门,便去往发令地点
-            if(true)
+            if(nOpenCount > 20)
             {
                 string strGoto = "cmd";     //cmd是发令地点名称,请在地图里设置这个航点
                 srvName.request.name = strGoto;
@@ -199,6 +287,9 @@ int main(int argc, char** argv)
                             ROS_INFO("Arrived at %s!",strGoto.c_str());
                             ros::spinOnce();
                             nState = STATE_WAIT_CMD;
+                            srvIAT.request.active = true;
+                            srvIAT.request.duration = 5;
+                            clientIAT.call(srvIAT);
                         }
                         else
                             ROS_INFO("Failed to get to %s ...",strGoto.c_str() );
