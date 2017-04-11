@@ -33,27 +33,37 @@
 *********************************************************************/
 /* @author Zhang Wanjie                                             */
 
-#ifndef WP_ACTION_MANAGER_H
-#define WP_ACTION_MANAGER_H
-#include "struct.h"
-#include <vector>
+#include <ros/ros.h>
+#include <std_msgs/String.h>
+#include "8_innovation_script.h"
 
-class CActionManager
+static CInnovationScript inno_script;
+
+void KeywordCB(const std_msgs::String::ConstPtr & msg)
 {
-public:
-	CActionManager();
-	~CActionManager();
+    //ROS_WARN("[inno_script_KeywordCB] - %s",msg->data.c_str());
+    string strListen = msg->data;
+    inno_script.strListen = strListen;
+}
 
-    vector<stAct> arAct;
-	int nCurActIndex;
-	int nCurActCode;
-	std::string strListen;
+int main(int argc, char** argv)
+{
+    ros::init(argc, argv, "inno_script_2017");
+    ROS_INFO("[main] inno_script_2017");
+    inno_script.Init();
+    inno_script.Queue();
+    inno_script.ShowActs();
 
-	bool Main();
-	void Init();
-	void Reset();
-	string GetToSpeak();
-	void ShowActs();
-};
+    ros::NodeHandle n;
+    ros::Subscriber sub_sr = n.subscribe("/xfyun/iat", 10, KeywordCB);
+    ros::Rate r(10);
+    ros::spinOnce();
+    while(ros::ok())
+    {
+        inno_script.Main();
+        ros::spinOnce();
+        r.sleep();
+    }
 
-#endif // WP_ACTION_MANAGER_H
+    return 0;
+}

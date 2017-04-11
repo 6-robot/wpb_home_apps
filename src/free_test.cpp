@@ -32,6 +32,7 @@
 *  POSSIBILITY OF SUCH DAMAGE.
 *********************************************************************/
 /* @author Zhang Wanjie                                             */
+
 #include <ros/ros.h>
 #include <std_msgs/String.h>
 #include "6_free_script.h"

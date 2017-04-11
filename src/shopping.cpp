@@ -32,28 +32,62 @@
 *  POSSIBILITY OF SUCH DAMAGE.
 *********************************************************************/
 /* @author Zhang Wanjie                                             */
+#include <ros/ros.h>
+#include <std_msgs/String.h>
+#include "wpb_home_tutorials/Follow.h"
 
-#ifndef WP_ACTION_MANAGER_H
-#define WP_ACTION_MANAGER_H
-#include "struct.h"
-#include <vector>
+#define STATE_READY     0
+#define STATE_FOLLOW    1
 
-class CActionManager
+static ros::Publisher spk_pub;
+static ros::ServiceClient follow_start;
+static ros::ServiceClient follow_stop;
+static ros::ServiceClient follow_resume;
+static int nState = STATE_READY;
+
+void KeywordCB(const std_msgs::String::ConstPtr & msg)
 {
-public:
-	CActionManager();
-	~CActionManager();
+    //ROS_WARN("[KeywordCB] - %s",msg->data.c_str());
+    int nFindIndex = 0;
+    nFindIndex = msg->data.find("跟");
+    if( nFindIndex >= 0 )
+    {
+        ///xfei/iat std_msgs/String -- "跟着我"
+        //ROS_WARN("[KeywordCB] - 开始跟随");
+        wpb_home_tutorials::Follow srv_start;
+        srv_start.request.thredhold = 0.7;
+        if (follow_start.call(srv_start))
+        {
+            ROS_WARN("[KeywordCB] - follow start !");
+            nState = STATE_FOLLOW;
+        }
+        else
+        {
+            ROS_WARN("[KeywordCB] - follow start failed...");
+        }
+    }
 
-    vector<stAct> arAct;
-	int nCurActIndex;
-	int nCurActCode;
-	std::string strListen;
+}
 
-	bool Main();
-	void Init();
-	void Reset();
-	string GetToSpeak();
-	void ShowActs();
-};
+int main(int argc, char** argv)
+{
+    ros::init(argc, argv, "wpb_home_shopping_2017");
 
-#endif // WP_ACTION_MANAGER_H
+    ros::NodeHandle n;
+    ros::Subscriber sub_sr = n.subscribe("/xfei/iat", 10, KeywordCB);
+
+    follow_start = n.serviceClient<wpb_home_tutorials::Follow>("wpb_home_follow/start");
+    follow_stop = n.serviceClient<wpb_home_tutorials::Follow>("wpb_home_follow/stop");
+    follow_resume = n.serviceClient<wpb_home_tutorials::Follow>("wpb_home_follow/resume");
+
+    ROS_INFO("[main] wpb_home_shopping_2017");
+    ros::Rate r(1);
+    while(ros::ok())
+    {
+        ros::spinOnce();
+        r.sleep();
+        
+    }
+
+    return 0;
+}

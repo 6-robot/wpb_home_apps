@@ -33,27 +33,37 @@
 *********************************************************************/
 /* @author Zhang Wanjie                                             */
 
-#ifndef WP_ACTION_MANAGER_H
-#define WP_ACTION_MANAGER_H
-#include "struct.h"
-#include <vector>
+#include <ros/ros.h>
+#include <std_msgs/String.h>
+#include "9_campus_script.h"
 
-class CActionManager
+static CCampusScript camp_script;
+
+void KeywordCB(const std_msgs::String::ConstPtr & msg)
 {
-public:
-	CActionManager();
-	~CActionManager();
+    //ROS_WARN("[camp_script_KeywordCB] - %s",msg->data.c_str());
+    string strListen = msg->data;
+    camp_script.strListen = strListen;
+}
 
-    vector<stAct> arAct;
-	int nCurActIndex;
-	int nCurActCode;
-	std::string strListen;
+int main(int argc, char** argv)
+{
+    ros::init(argc, argv, "camp_script_2017");
+    ROS_INFO("[main] camp_script_2017");
+    camp_script.Init();
+    camp_script.Queue();
+    camp_script.ShowActs();
 
-	bool Main();
-	void Init();
-	void Reset();
-	string GetToSpeak();
-	void ShowActs();
-};
+    ros::NodeHandle n;
+    ros::Subscriber sub_sr = n.subscribe("/xfyun/iat", 10, KeywordCB);
+    ros::Rate r(10);
+    ros::spinOnce();
+    while(ros::ok())
+    {
+        camp_script.Main();
+        ros::spinOnce();
+        r.sleep();
+    }
 
-#endif // WP_ACTION_MANAGER_H
+    return 0;
+}

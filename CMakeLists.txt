@@ -229,6 +229,46 @@ target_link_libraries(free_test
   ${catkin_LIBRARIES}
 )
 
+add_executable(recreational_test
+  src/recreational_test.cpp
+  src/action_manager/action_manager.cpp
+  src/scripts/7_recreational_script.cpp
+)
+add_dependencies(recreational_test ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(recreational_test
+  ${catkin_LIBRARIES}
+)
+
+add_executable(innovation_test
+  src/innovation_test.cpp
+  src/action_manager/action_manager.cpp
+  src/scripts/8_innovation_script.cpp
+)
+add_dependencies(innovation_test ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(innovation_test
+  ${catkin_LIBRARIES}
+)
+
+add_executable(campus_test
+  src/campus_test.cpp
+  src/action_manager/action_manager.cpp
+  src/scripts/9_campus_script.cpp
+)
+add_dependencies(campus_test ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(campus_test
+  ${catkin_LIBRARIES}
+)
+
+add_executable(home_test
+  src/home_test.cpp
+  src/action_manager/action_manager.cpp
+  src/scripts/10_home_script.cpp
+)
+add_dependencies(home_test ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(home_test
+  ${catkin_LIBRARIES}
+)
+
 add_executable(entrance_detect
   src/entrance_detect.cpp
 )
@@ -242,5 +282,13 @@ add_executable(who_is_who
 )
 add_dependencies(who_is_who ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(who_is_who
+  ${catkin_LIBRARIES}
+)
+
+add_executable(shopping
+  src/shopping.cpp
+)
+add_dependencies(shopping ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(shopping
   ${catkin_LIBRARIES}
 )

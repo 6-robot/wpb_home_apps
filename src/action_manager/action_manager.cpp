@@ -1,19 +1,60 @@
+/*********************************************************************
+* Software License Agreement (BSD License)
+* 
+*  Copyright (c) 2017-2020, Waterplus http://www.6-robot.com
+*  All rights reserved.
+* 
+*  Redistribution and use in source and binary forms, with or without
+*  modification, are permitted provided that the following conditions
+*  are met:
+* 
+*   * Redistributions of source code must retain the above copyright
+*     notice, this list of conditions and the following disclaimer.
+*   * Redistributions in binary form must reproduce the above
+*     copyright notice, this list of conditions and the following
+*     disclaimer in the documentation and/or other materials provided
+*     with the distribution.
+*   * Neither the name of the WaterPlus nor the names of its
+*     contributors may be used to endorse or promote products derived
+*     from this software without specific prior written permission.
+* 
+*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+*  FOOTPRINTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+*  POSSIBILITY OF SUCH DAMAGE.
+*********************************************************************/
+/* @author Zhang Wanjie                                             */
+
 #include "action_manager.h"
 #include <ros/ros.h>
 #include <std_msgs/String.h>
+#include <geometry_msgs/Twist.h>
 #include "xfyun_waterplus/IATSwitch.h"
+#include "wpb_home_tutorials/Follow.h"
 #include <move_base_msgs/MoveBaseAction.h>
 #include <actionlib/client/simple_action_client.h>
 #include <waterplus_map_tools/GetWaypointByName.h>
 
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 static ros::Publisher spk_pub;
+static ros::Publisher vel_pub;
 static string strToSpeak = "";
 static string strKeyWord = "";
 static ros::ServiceClient clientIAT;
 static xfyun_waterplus::IATSwitch srvIAT;
 static ros::ServiceClient cliGetWPName;
 static waterplus_map_tools::GetWaypointByName srvName;
+static ros::ServiceClient follow_start;
+static ros::ServiceClient follow_stop;
+static wpb_home_tutorials::Follow srvFlw;
 
 CActionManager::CActionManager()
 {
@@ -32,10 +73,31 @@ void CActionManager::Init()
     ros::NodeHandle n;
     cliGetWPName = n.serviceClient<waterplus_map_tools::GetWaypointByName>("/waterplus/get_waypoint_name");
     spk_pub = n.advertise<std_msgs::String>("/xfyun/tts", 20);
+    vel_pub = n.advertise<geometry_msgs::Twist>("/cmd_vel", 10);
     clientIAT = n.serviceClient<xfyun_waterplus::IATSwitch>("xfyun_waterplus/IATSwitch");
 }
 
+static void FollowSwitch(bool inActive, float inDist)
+{
+    if(inActive == true)
+    {
+        srvFlw.request.thredhold = inDist;
+        if (!follow_start.call(srvFlw))
+        {
+            ROS_WARN("[CActionManager] - follow start failed...");
+        }
+    }
+    else
+    {
+        if (!follow_stop.call(srvFlw))
+        {
+            ROS_WARN("[CActionManager] - failed to stop following...");
+        }
+    }
+}
+
 static int nLastActCode = -1;
+static geometry_msgs::Twist vel_cmd;
 bool CActionManager::Main()
 {
     int nNumOfAct = arAct.size();
@@ -50,6 +112,7 @@ bool CActionManager::Main()
 	case ACT_GOTO:
 		if (nLastActCode != ACT_GOTO)
 		{
+            FollowSwitch(false, 0);
 			string strGoto = arAct[nCurActIndex].strTarget;
             printf("[ActMgr] %d - Goto %s",nCurActIndex,strGoto.c_str());
             srvName.request.name = strGoto;
@@ -152,10 +215,26 @@ bool CActionManager::Main()
         }
 		break;
 
-	case ACT_QUESTION:
-		if (nLastActCode != ACT_QUESTION)
+    case ACT_MOVE:
+        FollowSwitch(false, 0);
+        printf("[ActMgr] %d - Move ( %.2f , %.2f ) - %.2f\n",nCurActIndex,arAct[nCurActIndex].fLinear_x,arAct[nCurActIndex].fLinear_y,arAct[nCurActIndex].fAngular_z);
+        vel_cmd.linear.x = arAct[nCurActIndex].fLinear_x;
+        vel_cmd.linear.y = arAct[nCurActIndex].fLinear_y;
+        vel_cmd.linear.z = 0;
+        vel_cmd.angular.x = 0;
+        vel_cmd.angular.y = 0;
+        vel_cmd.angular.z = arAct[nCurActIndex].fAngular_z;
+        vel_pub.publish(vel_cmd);
+
+        usleep(arAct[nCurActIndex].nDuration*1000*1000);
+        nCurActIndex ++;
+		break;
+
+	case ACT_FOLLOW:
+		if (nLastActCode != ACT_FOLLOW)
 		{
-            printf("[ActMgr] %d - answer a question \n",nCurActIndex);
+            printf("[ActMgr] %d - Follow dist = %.2f \n", nCurActIndex, arAct[nCurActIndex].fFollowDist);
+            FollowSwitch(true, arAct[nCurActIndex].fFollowDist);
             nCurActIndex ++;
 		}
 		break;
@@ -215,9 +294,21 @@ string ActionText(stAct* inAct)
         ActText = "听取关键词 ";
         ActText += inAct->strTarget;
     }
-    if(inAct->nAct == ACT_QUESTION)
+    if(inAct->nAct == ACT_MOVE)
     {
-        ActText = "回答问题 ";
+        ActText = "移动 ( ";
+        std::ostringstream stringStream;
+        stringStream << inAct->fLinear_x << " , " << inAct->fLinear_y << " ) - " << inAct->fAngular_z;
+        std::string retStr = stringStream.str();
+        ActText += retStr;
+    }
+    if(inAct->nAct == ACT_FOLLOW)
+    {
+        ActText = "跟随 距离为 ";
+        std::ostringstream stringStream;
+        stringStream << inAct->fFollowDist;
+        std::string retStr = stringStream.str();
+        ActText += retStr;
     }
     return ActText;
 }
