@@ -16,6 +16,9 @@ find_package(catkin REQUIRED COMPONENTS
   move_base_msgs actionlib 
 )
 
+find_package(PCL REQUIRED)
+find_package(OpenCV 2.4.3 REQUIRED)
+
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 include_directories(
@@ -119,6 +122,8 @@ catkin_package(
 ## Build ##
 ###########
 
+include_directories(include ${PCL_INCLUDE_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 # include_directories(include)
@@ -290,5 +295,30 @@ add_executable(shopping
 )
 add_dependencies(shopping ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(shopping
+  ${catkin_LIBRARIES}
+)
+
+
+add_executable(object_recognition
+  src/object_recognition.cpp
+)
+add_dependencies(object_recognition ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(object_recognition
+  ${catkin_LIBRARIES}
+)
+
+add_executable(person_recognition
+  src/person_recognition.cpp
+)
+add_dependencies(person_recognition ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(person_recognition
+  ${catkin_LIBRARIES}
+)
+
+add_executable(speech_recognition
+  src/speech_recognition.cpp
+)
+add_dependencies(speech_recognition ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(speech_recognition
   ${catkin_LIBRARIES}
 )

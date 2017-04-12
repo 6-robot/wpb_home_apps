@@ -2,7 +2,7 @@
 
   <arg name="model" default="$(find wpb_home_bringup)/urdf/wpb_home.urdf"/>
   <arg name="gui" default="true" />
-  <arg name="rvizconfig" default="$(find wpb_home_tutorials)/rviz/follow.rviz" />
+  <arg name="rvizconfig" default="$(find wpb_home_apps_2017)/rviz/obj_reco.rviz" />
 
   <param name="robot_description" command="$(find xacro)/xacro.py $(arg model)" />
   <param name="use_gui" value="$(arg gui)"/>
@@ -13,45 +13,20 @@
   <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" />
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)" required="true" />
 
-  <!-- Run wpb_home_follow node -->
-  <node name="wpb_home_follow" pkg="wpb_home_tutorials" type="wpb_home_follow"  output="screen">
-    <param name="start" type="bool" value="true"/> 
-  </node>
-
-  <!-- Run wpb_home core -->
-  <node pkg="wpb_home_bringup" type="wpb_home_core" name="wpb_home_core" output="screen">
-    <param name="serial_port" type="string" value="/dev/ftdi"/> 
-  </node>
-
-  <!--- Run Rplidar -->
-  <node name="rplidarNode"          pkg="rplidar_ros"  type="rplidarNode" output="screen">
-    <param name="serial_port"         type="string" value="/dev/rplidar"/>  
-    <param name="serial_baudrate"     type="int"    value="115200"/>
-    <param name="frame_id"            type="string" value="laser"/>
-    <param name="inverted"            type="bool"   value="false"/>
-    <param name="angle_compensate"    type="bool"   value="true"/>
-    <remap from="scan" to="scan_raw"/>
-  </node>
-    
-  <!-- Run lidar filter -->
-  <node pkg="wpb_home_bringup" type="wpb_home_lidar_filter" name="wpb_home_lidar_filter">
-    <param name="pub_topic" value="/scan"/>
-  </node>
-
-   <!-- Run wpb_home_follow node -->
-  <node name="follow_test" pkg="wpb_home_apps_2017" type="follow"  output="screen">
-    <param name="start" type="bool" value="false"/> 
-  </node>
-
-  <!--- Run xfyun -->
+  <!-- Run xfyun IAT -->
   <node pkg="xfyun_waterplus" type="iat_node" name="xfyun_iat_node" output="screen">
-      <param name="cn" type="bool" value="false"/> 
+      <param name="cn" type="bool" value="false"/>
+      <param name="start" type="bool" value="true"/>
   </node>
-
+  <!-- Run xfyun TTS -->
+  <node pkg="xfyun_waterplus" type="tts_node" name="xfyun_tts_node" /> 
   <!-- Run sound_play -->
   <node name="soundplay_node" pkg="sound_play" type="soundplay_node.py"/>
+  <!-- Run object_recognition -->
+  <node pkg="wpb_home_apps_2017" type="object_recognition" name="object_recognition" output="screen" />
 
   <!--- Run Kinect -->
+  <!--************************ kinect ************************-->
   <arg name="base_name"         default="kinect2"/>
   <arg name="sensor"            default=""/>
   <arg name="publish_tf"        default="false"/>
@@ -77,7 +52,7 @@
   <arg name="use_machine"       default="true"/>
   <arg name="respawn"           default="true"/>
   <arg name="use_nodelet"       default="true"/>
-  <arg name="output"            default="screen"/>
+  <arg name="output"            default="log"/>
 
   <machine name="localhost" address="localhost" if="$(arg use_machine)"/>
 
@@ -133,14 +108,15 @@
     <param name="worker_threads"    type="int"    value="$(arg worker_threads)"/>
   </node>
 
-  <!-- sd point cloud (512 x 424) -->
-  <node pkg="nodelet" type="nodelet" name="$(arg base_name)_points_xyzrgb_sd" machine="$(arg machine)"
+   <!-- qhd point cloud (960 x 540) -->
+  <node pkg="nodelet" type="nodelet" name="$(arg base_name)_points_xyzrgb_qhd" machine="$(arg machine)"
         args="load depth_image_proc/point_cloud_xyzrgb $(arg nodelet_manager)" respawn="$(arg respawn)">
-    <remap from="rgb/camera_info"             to="$(arg base_name)/sd/camera_info"/>
-    <remap from="rgb/image_rect_color"        to="$(arg base_name)/sd/image_color_rect"/>
-    <remap from="depth_registered/image_rect" to="$(arg base_name)/sd/image_depth_rect"/>
-    <remap from="depth_registered/points"     to="$(arg base_name)/sd/points"/>
+    <remap from="rgb/camera_info"             to="$(arg base_name)/qhd/camera_info"/>
+    <remap from="rgb/image_rect_color"        to="$(arg base_name)/qhd/image_color_rect"/>
+    <remap from="depth_registered/image_rect" to="$(arg base_name)/qhd/image_depth_rect"/>
+    <remap from="depth_registered/points"     to="$(arg base_name)/qhd/points"/>
     <param name="queue_size" type="int" value="$(arg queue_size)"/>
   </node>
+  <!--************************ end ************************-->
 
 </launch>

@@ -34,6 +34,8 @@
 /* @author Zhang Wanjie                                             */
 #include <ros/ros.h>
 #include <std_msgs/String.h>
+#include <sound_play/SoundRequest.h>
+#include "xfyun_waterplus/IATSwitch.h"
 #include "wpb_home_tutorials/Follow.h"
 
 #define STATE_READY     0
@@ -44,19 +46,29 @@ static ros::Publisher spk_pub;
 static ros::ServiceClient follow_start;
 static ros::ServiceClient follow_stop;
 static ros::ServiceClient follow_resume;
+static ros::ServiceClient clientIAT;
+static xfyun_waterplus::IATSwitch srvIAT;
 static int nState = STATE_READY;
-static int nWaitDelay = 0;      //停止等待时间
-static int nWaitCnt = 0;
+static int nWaitCnt = 10;           //倒计时时间
+
+static void Speak(std::string inStr)
+{
+    sound_play::SoundRequest sp;
+    sp.sound = sound_play::SoundRequest::SAY;
+    sp.command = sound_play::SoundRequest::PLAY_ONCE;
+    sp.arg = inStr;
+    spk_pub.publish(sp);
+}
 
 void KeywordCB(const std_msgs::String::ConstPtr & msg)
 {
     //ROS_WARN("[KeywordCB] - %s",msg->data.c_str());
     int nFindIndex = 0;
-    nFindIndex = msg->data.find("跟");
+    nFindIndex = msg->data.find("Follow me");
     if( nFindIndex >= 0 )
     {
-        ///xfei/iat std_msgs/String -- "跟着我"
         //ROS_WARN("[KeywordCB] - 开始跟随");
+        Speak("OK, Let's go.'");
         wpb_home_tutorials::Follow srv_start;
         srv_start.request.thredhold = 0.7;
         if (follow_start.call(srv_start))
@@ -70,18 +82,21 @@ void KeywordCB(const std_msgs::String::ConstPtr & msg)
         }
     }
 
-    nFindIndex = msg->data.find("停");
+    nFindIndex = msg->data.find("Stop follow");
     if( nFindIndex >= 0 )
     {
-        ///xfei/iat std_msgs/String -- "停下来"
         //ROS_WARN("[KeywordCB] - 停止跟随");
+        Speak("OK, I will stay here for 10 seconds.'");
         wpb_home_tutorials::Follow srv_stop;
         if (follow_stop.call(srv_stop))
         {
             ROS_WARN("[KeywordCB] - stop following!");
-            nWaitDelay = 8;
-            nWaitCnt = 0;
+            nWaitCnt = 10;
             nState = STATE_WAIT;
+            //识别完毕,关闭语音识别
+            srvIAT.request.active = false;
+            clientIAT.call(srvIAT);
+            usleep(3*1000*1000);
         }
         else
         {
@@ -95,8 +110,10 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "wpb_home_follow_2017");
 
     ros::NodeHandle n;
-    ros::Subscriber sub_sr = n.subscribe("/xfei/iat", 10, KeywordCB);
+    ros::Subscriber sub_sr = n.subscribe("/xfyun/iat", 10, KeywordCB);
+    spk_pub = n.advertise<sound_play::SoundRequest>("/robotsound", 20);
 
+    clientIAT = n.serviceClient<xfyun_waterplus::IATSwitch>("xfyun_waterplus/IATSwitch");
     follow_start = n.serviceClient<wpb_home_tutorials::Follow>("wpb_home_follow/start");
     follow_stop = n.serviceClient<wpb_home_tutorials::Follow>("wpb_home_follow/stop");
     follow_resume = n.serviceClient<wpb_home_tutorials::Follow>("wpb_home_follow/resume");
@@ -109,15 +126,19 @@ int main(int argc, char** argv)
         r.sleep();
         if(nState == STATE_WAIT)
         {
-            ROS_INFO("[main] waiting ... %d / %d", nWaitCnt, nWaitDelay);
-            nWaitCnt ++;
-            if(nWaitCnt >= nWaitDelay)
+            ROS_INFO("[main] waiting downcount ... %d ", nWaitCnt);
+            std::ostringstream stringStream;
+            stringStream << nWaitCnt;
+            std::string retStr = stringStream.str();
+            Speak(retStr);
+            nWaitCnt --;
+            if(nWaitCnt <= 0)
             {
+                Speak("OK, Move on.'");
                 wpb_home_tutorials::Follow srv_resume;
                 if (follow_resume.call(srv_resume))
                 {
                     ROS_WARN("[main] - continue!");
-                    nWaitDelay = 5;
                     nWaitCnt = 0;
                     nState = STATE_FOLLOW;
                 }
