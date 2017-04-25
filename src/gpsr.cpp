@@ -249,6 +249,7 @@ int main(int argc, char** argv)
     ros::Subscriber sub_sr = n.subscribe("/xfyun/iat", 10, KeywordCB);
     ros::Subscriber sub_ent = n.subscribe("/wpb_home/entrance_detect", 10, EntranceCB);
     clientIAT = n.serviceClient<xfyun_waterplus::IATSwitch>("xfyun_waterplus/IATSwitch");
+    cliGetWPName = n.serviceClient<waterplus_map_tools::GetWaypointByName>("/waterplus/get_waypoint_name");
     spk_pub = n.advertise<sound_play::SoundRequest>("/robotsound", 20);
 
     ROS_INFO("[main] wpb_home_gpsr_2017");
