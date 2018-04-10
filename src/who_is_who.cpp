@@ -67,7 +67,7 @@ static vector<string> arKWConfirm;
 
 static void Init_keywords()
 {
-    //人名关键词
+    //人名关键词(根据比赛前一天提供的人名列表进行修改)
     arKWPerson.push_back("Jack");
     arKWPerson.push_back("Tom");
     arKWPerson.push_back("Lucy");
@@ -191,7 +191,7 @@ void KeywordCB(const std_msgs::String::ConstPtr & msg)
         if(confirm == "yes" || confirm == "Yes" ||confirm == "Yeah")
         {
             nPersonCount ++;
-            if(nPersonCount > 1)
+            if(nPersonCount >= 3)   //要识别的人名个数
             {
                 bGotoExit = true;
                 nState = STATE_GOTO_EXIT;
@@ -212,7 +212,7 @@ void KeywordCB(const std_msgs::String::ConstPtr & msg)
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "wpb_home_WhoIsWho_2017");
+    ros::init(argc, argv, "wpb_home_WhoIsWho");
     Init_keywords();
 
     ros::NodeHandle n;
@@ -223,7 +223,7 @@ int main(int argc, char** argv)
     spk_pub = n.advertise<sound_play::SoundRequest>("/robotsound", 20);
     
 
-    ROS_INFO("[main] wpb_home_WhoIsWho_2017");
+    ROS_INFO("[main] wpb_home_WhoIsWho");
     ros::Rate r(10);
     while(ros::ok())
     {

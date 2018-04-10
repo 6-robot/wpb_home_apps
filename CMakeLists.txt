@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(wpb_home_apps_2017)
+project(wpb_home_apps
+)
 
 ## Add support for C++11, supported in ROS Kinetic and newer
 # add_definitions(-std=c++11)
@@ -13,7 +14,9 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge image_transport tf 
   sensor_msgs geometry_msgs std_msgs visualization_msgs 
   image_geometry message_generation
-  move_base_msgs actionlib 
+  move_base_msgs actionlib
+  wpb_home_bringup wpb_home_tutorials wpb_home_behaviors
+  xfyun_waterplus waterplus_map_tools
 )
 
 find_package(PCL REQUIRED)
@@ -22,6 +25,7 @@ find_package(OpenCV 2.4.3 REQUIRED)
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 include_directories(
+  include ${catkin_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
   include
 )
@@ -113,7 +117,7 @@ include_directories(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   INCLUDE_DIRS include
-#  LIBRARIES wpb_home_apps_2017
+#  LIBRARIES wpb_home_apps
   CATKIN_DEPENDS message_runtime
 #  DEPENDS system_lib
 )
@@ -130,7 +134,7 @@ link_directories(${PCL_LIBRARY_DIRS})
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/wpb_home_apps_2017.cpp
+#   src/${PROJECT_NAME}/wpb_home_apps.cpp
 # )
 
 ## Add cmake target dependencies of the library
@@ -141,7 +145,7 @@ link_directories(${PCL_LIBRARY_DIRS})
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/wpb_home_apps_2017_node.cpp)
+# add_executable(${PROJECT_NAME}_node src/wpb_home_apps_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -198,7 +202,7 @@ link_directories(${PCL_LIBRARY_DIRS})
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_wpb_home_apps_2017.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_wpb_home_apps.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()
@@ -227,7 +231,7 @@ target_link_libraries(gpsr
 add_executable(free_test
   src/free_test.cpp
   src/action_manager/action_manager.cpp
-  src/scripts/6_free_script.cpp
+  src/scripts/free_script.cpp
 )
 add_dependencies(free_test ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(free_test
@@ -247,7 +251,7 @@ target_link_libraries(recreational_test
 add_executable(innovation_test
   src/innovation_test.cpp
   src/action_manager/action_manager.cpp
-  src/scripts/8_innovation_script.cpp
+  src/scripts/innovation_script.cpp
 )
 add_dependencies(innovation_test ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(innovation_test
@@ -267,7 +271,7 @@ target_link_libraries(campus_test
 add_executable(home_test
   src/home_test.cpp
   src/action_manager/action_manager.cpp
-  src/scripts/10_home_script.cpp
+  src/scripts/home_script.cpp
 )
 add_dependencies(home_test ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(home_test
@@ -320,5 +324,22 @@ add_executable(speech_recognition
 )
 add_dependencies(speech_recognition ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(speech_recognition
+  ${catkin_LIBRARIES}
+)
+
+add_executable(path_plan
+  src/path_plan.cpp
+  src/action_manager/action_manager.cpp
+)
+add_dependencies(path_plan ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(path_plan
+  ${catkin_LIBRARIES}
+)
+
+add_executable(object_find
+  src/object_find.cpp
+)
+add_dependencies(object_find ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(object_find
   ${catkin_LIBRARIES}
 )

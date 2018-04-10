@@ -48,8 +48,8 @@ void KeywordCB(const std_msgs::String::ConstPtr & msg)
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "inno_script_2017");
-    ROS_INFO("[main] inno_script_2017");
+    ros::init(argc, argv, "inno_script");
+    ROS_INFO("[main] inno_script");
     inno_script.Init();
     inno_script.Queue();
     inno_script.ShowActs();

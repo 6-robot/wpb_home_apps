@@ -34,14 +34,7 @@
 /* @author Zhang Wanjie                                             */
 
 #include "action_manager.h"
-#include <ros/ros.h>
-#include <std_msgs/String.h>
-#include <geometry_msgs/Twist.h>
-#include "xfyun_waterplus/IATSwitch.h"
-#include "wpb_home_tutorials/Follow.h"
-#include <move_base_msgs/MoveBaseAction.h>
-#include <actionlib/client/simple_action_client.h>
-#include <waterplus_map_tools/GetWaypointByName.h>
+
 
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 static ros::Publisher spk_pub;
@@ -55,17 +48,58 @@ static waterplus_map_tools::GetWaypointByName srvName;
 static ros::ServiceClient follow_start;
 static ros::ServiceClient follow_stop;
 static wpb_home_tutorials::Follow srvFlw;
+static ros::Publisher behaviors_pub;
+static std_msgs::String behavior_msg;
+static ros::Publisher add_waypoint_pub;
+static int nToRecoFrame = 100;
 
 CActionManager::CActionManager()
 {
     nCurActIndex = 0;
     nCurActCode = -1;
     strListen = "";
+    bGrabDone = false;
+    bPassDone = false;
+    nVideoFrameCount = 0;
+    pVW = NULL;
 }
 
 CActionManager::~CActionManager()
 {
 
+}
+
+void CActionManager::ProcColorCB(const sensor_msgs::ImageConstPtr& msg)
+{
+    ROS_INFO("[ProcColorCB - ]...");
+    if(nCurActCode != ACT_REC_VIDEO)
+        return;
+
+    cv_bridge::CvImagePtr cv_ptr;
+    try
+    {
+        cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+    }
+    catch (cv_bridge::Exception& e)
+    {
+        ROS_ERROR("cv_bridge exception: %s", e.what());
+        return;
+    }
+
+    cv::Mat image = cv_ptr->image;
+
+    if(pVW != NULL)
+    {
+        ROS_INFO("[rec video - %d]...",nVideoFrameCount);
+        *pVW << image;
+        nVideoFrameCount ++;
+    }
+
+    // //image_pub.publish(cv_ptr->toImageMsg());
+ 
+    // imwrite("/home/robot/objects.jpg",cv_ptr->image);
+    // ROS_INFO("Save the image of object recognition!!");
+    // spk_pub.publish("OK,I have recognize the objects.");
 }
 
 void CActionManager::Init()
@@ -75,6 +109,14 @@ void CActionManager::Init()
     spk_pub = n.advertise<std_msgs::String>("/xfyun/tts", 20);
     vel_pub = n.advertise<geometry_msgs::Twist>("/cmd_vel", 10);
     clientIAT = n.serviceClient<xfyun_waterplus::IATSwitch>("xfyun_waterplus/IATSwitch");
+    follow_start = n.serviceClient<wpb_home_tutorials::Follow>("wpb_home_follow/start");   //连接跟随开始的服务
+    follow_stop = n.serviceClient<wpb_home_tutorials::Follow>("wpb_home_follow/stop");      //连接跟随停止的服务
+    behaviors_pub = n.advertise<std_msgs::String>("/wpb_home/behaviors", 30);
+    add_waypoint_pub = n.advertise<waterplus_map_tools::Waypoint>( "/waterplus/add_waypoint", 1);
+    grab_result_sub = n.subscribe<std_msgs::String>("/wpb_home/grab_result",30,&CActionManager::GrabResultCallback,this);
+    pass_result_sub = n.subscribe<std_msgs::String>("/wpb_home/pass_result",30,&CActionManager::PassResultCallback,this);
+
+    ros::Subscriber rgb_sub = n.subscribe<sensor_msgs::Image>("/kinect2/qhd/image_color", 10 , &CActionManager::ProcColorCB, this);
 }
 
 static void FollowSwitch(bool inActive, float inDist)
@@ -94,6 +136,63 @@ static void FollowSwitch(bool inActive, float inDist)
             ROS_WARN("[CActionManager] - failed to stop following...");
         }
     }
+}
+
+static void GrabSwitch(bool inActive)
+{
+    if(inActive == true)
+    {
+        behavior_msg.data = "grab start";
+        behaviors_pub.publish(behavior_msg);
+    }
+    else
+    {
+        behavior_msg.data = "grab stop";
+        behaviors_pub.publish(behavior_msg);
+    }
+}
+
+static void PassSwitch(bool inActive)
+{
+    if(inActive == true)
+    {
+        behavior_msg.data = "pass start";
+        behaviors_pub.publish(behavior_msg);
+    }
+    else
+    {
+        behavior_msg.data = "pass stop";
+        behaviors_pub.publish(behavior_msg);
+    }
+}
+
+static void AddNewWaypoint(string inStr)
+{
+    tf::TransformListener listener;
+    tf::StampedTransform transform;
+    try
+    {
+        listener.waitForTransform("/map","/base_footprint",  ros::Time(0), ros::Duration(10.0) );
+        listener.lookupTransform("/map","/base_footprint", ros::Time(0), transform);
+    }
+    catch (tf::TransformException &ex) 
+    {
+        ROS_ERROR("[lookupTransform] %s",ex.what());
+        return;
+    }
+
+    float tx = transform.getOrigin().x();
+    float ty = transform.getOrigin().y();
+    tf::Stamped<tf::Pose> p = tf::Stamped<tf::Pose>(tf::Pose(transform.getRotation() , tf::Point(tx, ty, 0.0)), ros::Time::now(), "map");
+    geometry_msgs::PoseStamped new_pos;
+    tf::poseStampedTFToMsg(p, new_pos);
+
+    waterplus_map_tools::Waypoint new_waypoint;
+    new_waypoint.name = inStr;
+    new_waypoint.pose = new_pos.pose;
+    add_waypoint_pub.publish(new_waypoint);
+
+    ROS_WARN("[New Waypoint] %s ( %.2f , %.2f )" , new_waypoint.name.c_str(), tx, ty);
 }
 
 static int nLastActCode = -1;
@@ -163,16 +262,30 @@ bool CActionManager::Main()
 		if (nLastActCode != ACT_GRAB)
 		{
             printf("[ActMgr] %d - Grab %s\n",nCurActIndex,arAct[nCurActIndex].strTarget.c_str());
-            nCurActIndex ++;
+            bGrabDone = false;
+            GrabSwitch(true);
 		}
+        if(bGrabDone == true)
+        {
+            printf("[ActMgr] %d - Grab %s done!\n",nCurActIndex,arAct[nCurActIndex].strTarget.c_str());
+            GrabSwitch(false);
+            nCurActIndex ++;
+        }
 		break;
 
 	case ACT_PASS:
 		if (nLastActCode != ACT_PASS)
 		{
             printf("[ActMgr] %d - Pass %s\n",nCurActIndex,arAct[nCurActIndex].strTarget.c_str());
-            nCurActIndex ++;
+            bPassDone = false;
+            PassSwitch(true);
 		}
+        if(bPassDone == true)
+        {
+            printf("[ActMgr] %d - Pass %s done!\n",nCurActIndex,arAct[nCurActIndex].strTarget.c_str());
+            PassSwitch(false);
+            nCurActIndex ++;
+        }
 		break;
 
 	case ACT_SPEAK:
@@ -238,6 +351,63 @@ bool CActionManager::Main()
             nCurActIndex ++;
 		}
 		break;
+
+    case ACT_ADD_WAYPOINT:
+		if (nLastActCode != ACT_ADD_WAYPOINT)
+		{
+            printf("[ActMgr] %d - Add waypoint %s \n", nCurActIndex, arAct[nCurActIndex].strTarget.c_str());
+            AddNewWaypoint(arAct[nCurActIndex].strTarget);
+            nCurActIndex ++;
+		}
+		break;
+
+    case ACT_REC_VIDEO:
+		if (nLastActCode != ACT_REC_VIDEO)
+		{
+            printf("[ActMgr] %d - rec video start \n", nCurActIndex);
+            nVideoFrameCount = 0;
+            if(pVW != NULL)
+            {
+                delete pVW;
+                pVW = NULL;
+            }
+            pVW = new VideoWriter(arAct[nCurActIndex].strTarget, CV_FOURCC('M', 'J', 'P', 'G'), 25.0, Size(960, 540)); 
+            nToRecoFrame = arAct[nCurActIndex].nDuration *25;
+		}
+        if ( nVideoFrameCount >= nToRecoFrame )
+        {
+            printf("[ActMgr] %d - rec done \n", nCurActIndex);
+            nCurActIndex ++;
+        }
+		break;
+
+    case ACT_PLAY_VIDEO:
+		if (nLastActCode != ACT_PLAY_VIDEO)
+		{
+            printf("[ActMgr] %d - play video \n", nCurActIndex);
+            std::stringstream ss;
+            ss << "/home/robot/catkin_ws/src/wpb_home_apps/tools/ffplay -v 0 -loop " << arAct[nCurActIndex].nLoopPlay << " -i " << arAct[nCurActIndex].strTarget;
+            system(ss.str().c_str());
+
+            usleep(arAct[nCurActIndex].nDuration*1000*1000);
+            nCurActIndex ++;
+		}
+        break;
+
+    case ACT_CAP_IMAGE:
+		if (nLastActCode != ACT_CAP_IMAGE)
+		{
+            printf("[ActMgr] %d - capture image \n", nCurActIndex);
+            nVideoFrameCount = 0;
+            strImage = arAct[nCurActIndex].strTarget;
+		}
+        if ( nVideoFrameCount > 0)
+        {
+            printf("[ActMgr] %d - capture image done \n", nCurActIndex);
+            nCurActIndex ++;
+        }
+		break;
+
 
 	default:
 		break;
@@ -310,6 +480,14 @@ string ActionText(stAct* inAct)
         std::string retStr = stringStream.str();
         ActText += retStr;
     }
+    if(inAct->nAct == ACT_ADD_WAYPOINT)
+    {
+        ActText = "添加航点 ";
+        std::ostringstream stringStream;
+        stringStream << inAct->fFollowDist;
+        std::string retStr = stringStream.str();
+        ActText += retStr;
+    }
     return ActText;
 }
 
@@ -326,4 +504,24 @@ void CActionManager::ShowActs()
         printf("行为 %d : %s\n",i+1,act_txt.c_str());
     }
     printf("*********************************************\n\n");
+}
+
+void CActionManager::GrabResultCallback(const std_msgs::String::ConstPtr& res)
+{
+    int nFindIndex = 0;
+    nFindIndex = res->data.find("done");
+    if( nFindIndex >= 0 )
+    {
+        bGrabDone = true;
+    }
+}
+
+void CActionManager::PassResultCallback(const std_msgs::String::ConstPtr& res)
+{
+    int nFindIndex = 0;
+    nFindIndex = res->data.find("done");
+    if( nFindIndex >= 0 )
+    {
+        bPassDone = true;
+    }
 }

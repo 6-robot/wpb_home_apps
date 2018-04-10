@@ -90,14 +90,14 @@ void KeywordCB(const std_msgs::String::ConstPtr & msg)
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "speech_recognition_2017");
+    ros::init(argc, argv, "speech_recognition");
 
     ros::NodeHandle n;
     ros::Subscriber sub_sr = n.subscribe("/xfyun/iat", 10, KeywordCB);
     spk_pub = n.advertise<sound_play::SoundRequest>("/robotsound", 20);
     vel_pub = n.advertise<geometry_msgs::Twist>("/cmd_vel", 10);
 
-    ROS_INFO("[main] speech_recognition_2017");
+    ROS_INFO("[main] speech_recognition");
     ros::Rate r(1);
     while(ros::ok())
     {

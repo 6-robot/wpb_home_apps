@@ -97,12 +97,9 @@ void KeywordCB(const std_msgs::String::ConstPtr & msg)
         if (follow_stop.call(srv_stop))                 //调用启智ROS的跟随停止服务
         {
             ROS_WARN("[KeywordCB] - stop following!");          //调用服务成功
+            sleep(4);
             nWaitCnt = 10;
             nState = STATE_WAIT;          //调用成功了,改变状态机的状态值到停止等待状态
-            //识别完毕,关闭语音识别
-            srvIAT.request.active = false;
-            clientIAT.call(srvIAT);
-            usleep(3*1000*1000);
         }
         else
         {
@@ -129,7 +126,7 @@ void KeywordCB(const std_msgs::String::ConstPtr & msg)
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "wpb_home_follow_2017");  //程序初始化
+    ros::init(argc, argv, "wpb_home_follow");  //程序初始化
 
     ros::NodeHandle n;
     ros::Subscriber sub_sr = n.subscribe("/xfyun/iat", 10, KeywordCB);  //订阅讯飞语音识别结果主题
@@ -140,7 +137,7 @@ int main(int argc, char** argv)
     follow_stop = n.serviceClient<wpb_home_tutorials::Follow>("wpb_home_follow/stop");      //连接跟随停止的服务
     follow_resume = n.serviceClient<wpb_home_tutorials::Follow>("wpb_home_follow/resume");   //连接跟随继续的服务
 
-    ROS_INFO("[main] wpb_home_follow_2017");
+    ROS_INFO("[main] wpb_home_follow");
     ros::Rate r(1);         //while函数的循环周期,这里为1Hz
     while(ros::ok())        //程序主循环
     {

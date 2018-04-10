@@ -35,6 +35,12 @@
 
 #include <ros/ros.h>
 #include <std_msgs/String.h>
+#include <sensor_msgs/Image.h>
+#include <cv_bridge/cv_bridge.h>
+#include <image_transport/image_transport.h>
+#include <opencv2/highgui/highgui.hpp>
+#include "opencv2/imgproc/imgproc.hpp"
+#include <sensor_msgs/Image.h>
 #include "9_campus_script.h"
 
 static CCampusScript camp_script;
@@ -46,16 +52,54 @@ void KeywordCB(const std_msgs::String::ConstPtr & msg)
     camp_script.strListen = strListen;
 }
 
+void ProcColorCB(const sensor_msgs::ImageConstPtr& msg)
+{
+     //ROS_INFO("[ProcColorCB - ]...");
+    if(camp_script.nCurActCode != ACT_REC_VIDEO && camp_script.nCurActCode != ACT_CAP_IMAGE )
+        return;
+
+    cv_bridge::CvImagePtr cv_ptr;
+    try
+    {
+        cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+    }
+    catch (cv_bridge::Exception& e)
+    {
+        ROS_ERROR("cv_bridge exception: %s", e.what());
+        return;
+    }
+
+    cv::Mat image = cv_ptr->image;
+
+    if( camp_script.nCurActCode == ACT_REC_VIDEO && camp_script.pVW != NULL )
+    {
+        ROS_INFO("[rec video frame = %d]...", camp_script.nVideoFrameCount);
+        *(camp_script.pVW) << image;
+        camp_script.nVideoFrameCount ++;
+    }
+
+    //image_pub.publish(cv_ptr->toImageMsg());
+ 
+    if(camp_script.nCurActCode == ACT_CAP_IMAGE)
+    {
+        imwrite(camp_script.strImage,cv_ptr->image);
+        camp_script.nVideoFrameCount ++;
+    }
+}
+
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "camp_script_2017");
-    ROS_INFO("[main] camp_script_2017");
+    ros::init(argc, argv, "camp_script");
+    ROS_INFO("[main] camp_script");
+    sleep(3);
     camp_script.Init();
     camp_script.Queue();
     camp_script.ShowActs();
 
     ros::NodeHandle n;
     ros::Subscriber sub_sr = n.subscribe("/xfyun/iat", 10, KeywordCB);
+
+    ros::Subscriber rgb_sub = n.subscribe("/kinect2/qhd/image_color", 10 , ProcColorCB);
     ros::Rate r(10);
     ros::spinOnce();
     while(ros::ok())

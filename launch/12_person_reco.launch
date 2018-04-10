@@ -7,9 +7,6 @@
   <param name="use_gui" value="$(arg gui)"/>
   <param name="/use_sim_time" value="false"/>
 
-  <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher">
-  <rosparam command="load" file="$(find wpb_home_bringup)/config/wpb_home.yaml" />
-  </node>
   <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" />
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)" required="true" />
 
@@ -23,9 +20,9 @@
   <arg name="use_png"           default="false"/>
   <arg name="jpeg_quality"      default="90"/>
   <arg name="png_level"         default="1"/>
-  <arg name="depth_method"      default="default"/>
+  <arg name="depth_method"      default="cpu"/>
   <arg name="depth_device"      default="-1"/>
-  <arg name="reg_method"        default="default"/>
+  <arg name="reg_method"        default="cpu"/>
   <arg name="reg_device"        default="-1"/>
   <arg name="max_depth"         default="12.0"/>
   <arg name="min_depth"         default="0.1"/>
@@ -39,7 +36,7 @@
   <arg name="use_machine"       default="true"/>
   <arg name="respawn"           default="true"/>
   <arg name="use_nodelet"       default="true"/>
-  <arg name="output"            default="screen"/>
+  <arg name="output"            default="log"/>
 
   <machine name="localhost" address="localhost" if="$(arg use_machine)"/>
 
@@ -118,13 +115,14 @@
 
   <!-- Run person_recognition -->
   <arg name="face_cascade_file" default="$(find wpb_home_tutorials)/config/haarcascade_frontalface_alt.xml" />
-  <node name="person_recognition" pkg="wpb_home_apps_2017" type="person_recognition" output="screen">
+  <node name="person_recognition" pkg="wpb_home_apps" type="person_recognition" output="screen">
     <param name="face_cascade_name" value="$(arg face_cascade_file)"/>
   </node>
 
   <!-- Run wpb_home core -->
   <node pkg="wpb_home_bringup" type="wpb_home_core" name="wpb_home_core" output="screen">
     <param name="serial_port" type="string" value="/dev/ftdi"/> 
+    <rosparam file="$(find wpb_home_bringup)/config/wpb_home.yaml" command="load" />
   </node>
 
 </launch>

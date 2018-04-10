@@ -3,6 +3,9 @@
     <!--- Run map tools -->
     <include file="$(find waterplus_map_tools)/launch/wpb_home_nav_test.launch" />
 
+    <!--- Run servers -->
+    <include file="$(find wpb_home_behaviors)/launch/all_servers.launch" />
+
     <!--- Run xfyun -->
     <node pkg="xfyun_waterplus" type="iat_node" name="xfyun_iat_node" output="screen">
         <param name="cn" type="bool" value="false"/> 
@@ -10,10 +13,10 @@
     <node pkg="xfyun_waterplus" type="tts_node" name="xfyun_tts_node" /> 
 
     <!--- Run entrance_detect -->
-    <node pkg="wpb_home_apps_2017" type="entrance_detect" name="entrance_detect"/>
+    <node pkg="wpb_home_apps" type="entrance_detect" name="entrance_detect"/>
 
     <!--- Run GPSR -->
-    <node pkg="wpb_home_apps_2017" type="gpsr" name="gpsr" output="screen"/>
+    <node pkg="wpb_home_apps" type="gpsr" name="gpsr" output="screen"/>
 
     <!-- Run sound_play -->
     <node name="soundplay_node" pkg="sound_play" type="soundplay_node.py"/>

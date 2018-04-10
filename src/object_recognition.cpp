@@ -156,7 +156,11 @@ void ProcCloudCB(const sensor_msgs::PointCloud2 &input)
     //ROS_WARN("ProcCloudCB");
     //to footprint
     sensor_msgs::PointCloud2 pc_footprint;
-    tf_listener->waitForTransform("/base_footprint", input.header.frame_id, input.header.stamp, ros::Duration(5.0));  //return value always  false!
+    bool res = tf_listener->waitForTransform("/base_footprint", input.header.frame_id, input.header.stamp, ros::Duration(5.0)); 
+    if(res == false)
+    {
+        return;
+    }
     pcl_ros::transformPointCloud("/base_footprint", input, pc_footprint, *tf_listener);
 
     //source cloud
@@ -515,8 +519,8 @@ void RemoveBoxes()
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "object_recognition_2017");
-    ROS_INFO("object_recognition_2017");
+    ros::init(argc, argv, "object_recognition");
+    ROS_INFO("object_recognition");
     tf_listener = new tf::TransformListener(); 
 
     ros::NodeHandle n;

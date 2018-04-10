@@ -53,6 +53,7 @@
 #include <sound_play/SoundRequest.h>
 #include <std_msgs/String.h>
 #include <geometry_msgs/Twist.h>
+#include <geometry_msgs/Pose2D.h>
 
 using namespace cv;
 
@@ -65,6 +66,9 @@ static Mat frame_gray;
 static ros::Publisher image_pub;
 static std::vector<Rect> faces;
 static std::vector<cv::Rect>::const_iterator face_iter;
+static ros::Publisher ctrl_pub;
+static std_msgs::String ctrl_msg;
+static geometry_msgs::Pose2D pose_diff;
 
 static ros::Publisher pc_pub;
 static tf::TransformListener *tf_listener; 
@@ -86,7 +90,7 @@ static ros::Publisher vel_pub;
 #define STATE_DONE      6
 
 static int nState = STATE_READY;
-static int nCountDown = 10;
+static int nCountDown = 300;
 static int nTurnCount = 6;
 
 //框选出人脸
@@ -140,6 +144,10 @@ static void Speak(string inStr)
 
 void callbackRGB(const sensor_msgs::ImageConstPtr& msg)
 {
+    if(nState != STATE_OPERATOR && nState != STATE_CROWD)
+    {
+        return;
+    }
     //ROS_INFO("callbackRGB");
     cv_bridge::CvImagePtr cv_ptr;
     try
@@ -193,9 +201,17 @@ void callbackRGB(const sensor_msgs::ImageConstPtr& msg)
 
 void callbackPointCloud(const sensor_msgs::PointCloud2 &input)
 {
-     //to footprint
+    if(nState != STATE_OPERATOR && nState != STATE_CROWD)
+    {
+        return;
+    }
+    //to footprint
     sensor_msgs::PointCloud2 pc_footprint;
-    tf_listener->waitForTransform("/base_footprint", input.header.frame_id, input.header.stamp, ros::Duration(5.0));  //return value always  false!
+    bool res = tf_listener->waitForTransform("/base_footprint", input.header.frame_id, input.header.stamp, ros::Duration(5.0)); 
+    if(res == false)
+    {
+        return;
+    }
     pcl_ros::transformPointCloud("/base_footprint", input, pc_footprint, *tf_listener);
 
     //source cloud
@@ -273,6 +289,14 @@ void callbackPointCloud(const sensor_msgs::PointCloud2 &input)
     pcl::toROSMsg(cloud_src, output);
     output.header.frame_id = pc_footprint.header.frame_id;
     pc_pub.publish(output);
+
+}
+
+void PoseDiffCallback(const geometry_msgs::Pose2D::ConstPtr& msg)
+{
+    pose_diff.x = msg->x;
+    pose_diff.y = msg->y;
+    pose_diff.theta = msg->theta;
 }
 
 void KeywordCB(const std_msgs::String::ConstPtr & msg)
@@ -299,14 +323,14 @@ void KeywordCB(const std_msgs::String::ConstPtr & msg)
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "person_recognition_2017");
+    ros::init(argc, argv, "person_recognition");
     ros::NodeHandle nh_param("~");
     //nh_param.param<std::string>("rgb_topic", rgb_topic, "/camera/image_raw");
     nh_param.param<std::string>("rgb_topic", rgb_topic, "/kinect2/hd/image_color");
     nh_param.param<std::string>("topic", pc_topic, "/kinect2/hd/points");
     nh_param.param<std::string>("face_cascade_name", face_cascade_name, "haarcascade_frontalface_alt.xml");
-
-    ROS_INFO("person_recognition_2017");
+ 
+    ROS_INFO("person_recognition");
 
     bool res = face_cascade.load(face_cascade_name);
 	if (res == false)
@@ -326,20 +350,29 @@ int main(int argc, char **argv)
     spk_pub = n.advertise<sound_play::SoundRequest>("/robotsound", 20);
     clientIAT = n.serviceClient<xfyun_waterplus::IATSwitch>("xfyun_waterplus/IATSwitch");
     vel_pub = n.advertise<geometry_msgs::Twist>("/cmd_vel", 10);
+    ctrl_pub = n.advertise<std_msgs::String>("/wpb_home/ctrl", 30);
+    ros::Subscriber pose_diff_sub = n.subscribe("/wpb_home/pose_diff", 1, PoseDiffCallback);
 
-
-    ros::Rate loop_rate(0.8);
+    ros::Rate loop_rate(30);
     while( ros::ok())
     {
         if(nState == STATE_COUNTDOWN)
         {
-            ROS_INFO("[Countdown] - %d",nCountDown);
+            //ROS_INFO("[Countdown] - %d",nCountDown);
             if(nCountDown > 0)
             {
-                std::ostringstream stringStream;
-                stringStream << nCountDown;
-                std::string retStr = stringStream.str();
-                Speak(retStr);
+                if(nCountDown%30 == 0)
+                {
+                    std::ostringstream stringStream;
+                    stringStream << nCountDown/30;
+                    std::string retStr = stringStream.str();
+                    Speak(retStr);
+                    ctrl_msg.data = "pose_diff reset";
+                    ctrl_pub.publish(ctrl_msg);
+                    ros::spinOnce();
+                    ROS_INFO("[Countdown] - %s",retStr.c_str());
+                    sleep(1);
+                }
                 nCountDown --;
             }
             else
@@ -350,24 +383,23 @@ int main(int argc, char **argv)
         }
         if(nState == STATE_TURN)
         {
-            ROS_INFO("[Turn] - %d",nTurnCount);
+            ROS_INFO("[Turn] count=%d  z= %.2f",nTurnCount, pose_diff.theta);
             geometry_msgs::Twist vel_cmd;
             vel_cmd.linear.x = 0;
             vel_cmd.linear.y = 0;
             vel_cmd.linear.z = 0;
             vel_cmd.angular.x = 0;
             vel_cmd.angular.y = 0;
-            vel_cmd.angular.z = 3.14/5+0.05;
+            vel_cmd.angular.z = 0.2;    //旋转速度,如果转身不理想,可以修改这个值
             nTurnCount --;
-            if(nTurnCount <= 3)
+            if(pose_diff.theta >= 3.13)
             {
-                //转5秒,停顿3秒让kinect画面稳定,好识别
                 vel_cmd.angular.z = 0;
-            }
-            if(nTurnCount <= 0)
-            {
-                //3秒已过,识别人群
-                nState = STATE_CROWD;
+                nCountDown ++;
+                if(nCountDown > 100)
+                {
+                    nState = STATE_CROWD;
+                }
             }
             vel_pub.publish(vel_cmd);
         }

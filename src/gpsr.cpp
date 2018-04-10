@@ -241,7 +241,7 @@ void KeywordCB(const std_msgs::String::ConstPtr & msg)
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "wpb_home_gpsr_2017");
+    ros::init(argc, argv, "wpb_home_gpsr");
     Init_keywords();
     action_manager.Init();
 
@@ -252,7 +252,7 @@ int main(int argc, char** argv)
     cliGetWPName = n.serviceClient<waterplus_map_tools::GetWaypointByName>("/waterplus/get_waypoint_name");
     spk_pub = n.advertise<sound_play::SoundRequest>("/robotsound", 20);
 
-    ROS_INFO("[main] wpb_home_gpsr_2017");
+    ROS_INFO("[main] wpb_home_gpsr");
     ros::Rate r(10);
     while(ros::ok())
     {

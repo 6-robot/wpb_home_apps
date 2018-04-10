@@ -2,7 +2,7 @@
 
   <arg name="model" default="$(find wpb_home_bringup)/urdf/wpb_home.urdf"/>
   <arg name="gui" default="true" />
-  <arg name="rvizconfig" default="$(find wpb_home_apps_2017)/rviz/obj_reco.rviz" />
+  <arg name="rvizconfig" default="$(find wpb_home_apps)/rviz/obj_reco.rviz" />
 
   <param name="robot_description" command="$(find xacro)/xacro.py $(arg model)" />
   <param name="use_gui" value="$(arg gui)"/>
@@ -23,7 +23,7 @@
   <!-- Run sound_play -->
   <node name="soundplay_node" pkg="sound_play" type="soundplay_node.py"/>
   <!-- Run object_recognition -->
-  <node pkg="wpb_home_apps_2017" type="object_recognition" name="object_recognition" output="screen" />
+  <node pkg="wpb_home_apps" type="object_recognition" name="object_recognition" output="screen" />
 
   <!--- Run Kinect -->
   <!--************************ kinect ************************-->
@@ -36,9 +36,9 @@
   <arg name="use_png"           default="false"/>
   <arg name="jpeg_quality"      default="90"/>
   <arg name="png_level"         default="1"/>
-  <arg name="depth_method"      default="default"/>
+  <arg name="depth_method"      default="cpu"/>
   <arg name="depth_device"      default="-1"/>
-  <arg name="reg_method"        default="default"/>
+  <arg name="reg_method"        default="cpu"/>
   <arg name="reg_device"        default="-1"/>
   <arg name="max_depth"         default="12.0"/>
   <arg name="min_depth"         default="0.1"/>
