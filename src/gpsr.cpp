@@ -168,7 +168,7 @@ void KeywordCB(const std_msgs::String::ConstPtr & msg)
         {
             printf("句子里包含物品 - %s \n",object.c_str());
             stAct newAct;
-            newAct.nAct = ACT_FIND_OBJ;
+            newAct.nAct = ACT_GRAB;
             newAct.strTarget = object;
             action_manager.arAct.push_back(newAct);
             bAction = true;
