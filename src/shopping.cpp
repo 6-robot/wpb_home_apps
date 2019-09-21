@@ -145,6 +145,7 @@ void AddNewWaypoint(string inStr)
 void Speak(string inStr)
 {
     spk_msg.arg = inStr;
+    spk_msg.volume = 1.0f;  //indigo(Ubuntu 14.04)需要注释掉这一句才能编译
     spk_pub.publish(spk_msg);
 }
 

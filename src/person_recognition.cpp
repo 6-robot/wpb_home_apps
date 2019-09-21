@@ -56,6 +56,7 @@
 #include <geometry_msgs/Pose2D.h>
 
 using namespace cv;
+using namespace std;
 
 static std::string rgb_topic;
 static std::string pc_topic;
@@ -139,6 +140,7 @@ static void Speak(string inStr)
     sp.sound = sound_play::SoundRequest::SAY;
     sp.command = sound_play::SoundRequest::PLAY_ONCE;
     sp.arg = inStr;
+    sp.volume = 1.0f;  //indigo(Ubuntu 14.04)需要注释掉这一句才能编译
     spk_pub.publish(sp);
 }
 

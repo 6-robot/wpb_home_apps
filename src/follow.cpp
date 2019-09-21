@@ -61,6 +61,7 @@ static void Speak(std::string inStr)
     sp.sound = sound_play::SoundRequest::SAY;
     sp.command = sound_play::SoundRequest::PLAY_ONCE;
     sp.arg = inStr;
+    sp.volume = 1.0f;  //indigo(Ubuntu 14.04)需要注释掉这一句才能编译
     spk_pub.publish(sp);
 }
 
