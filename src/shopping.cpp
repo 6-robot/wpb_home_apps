@@ -84,6 +84,8 @@ static int nState = STATE_READY;
 static int nDelay = 0;
 
 static vector<string> arKeyword;
+static vector<string> arObjectWant;
+static int nIndexWant = 0;
 
 // 添加航点关键词
 void InitKeyword()
@@ -107,6 +109,28 @@ static string FindKeyword(string inSentence)
             res = arKeyword[i];
             break;
         }
+    }
+    return res;
+}
+
+// 从句子里找多个arKeyword关键词
+static string FindMultiKeyword(string inSentence)
+{
+    string res = "";
+    int nSize = arKeyword.size();
+    for(int i=0;i<nSize;i++)
+    {
+        int nFindIndex = inSentence.find(arKeyword[i]);
+        if(nFindIndex >= 0)
+        {
+            arObjectWant.push_back(arKeyword[i]);
+        }
+    }
+    int nNumObject = arObjectWant.size();
+    for(int i=0;i<nNumObject;i++)
+    {
+        res += arObjectWant[i];
+        res += " , ";
     }
     return res;
 }
@@ -147,6 +171,7 @@ void Speak(string inStr)
     spk_msg.arg = inStr;
     spk_msg.volume = 1.0f;  //indigo(Ubuntu 14.04)需要注释掉这一句才能编译
     spk_pub.publish(spk_msg);
+    ros::spinOnce();
 }
 
 // 跟随模式开关
@@ -230,15 +255,16 @@ void KeywordCB(const std_msgs::String::ConstPtr & msg)
 
     if(nState == STATE_ASK)
     {
-        // 从识别结果句子中查找物品（航点）关键词
-        string strKeyword = FindKeyword(msg->data);
+        // 从识别结果句子中查找多个物品（航点）关键词
+        string strKeyword = FindMultiKeyword(msg->data);
         int nLenOfKW = strlen(strKeyword.c_str());
         if(nLenOfKW > 0)
         {
             // 发现物品（航点）关键词
-            strGoto = strKeyword;
-            string strSpeak = strKeyword + " . OK. I will go to get it for you."; 
+            string strSpeak = "I will repeat the objects. " + strKeyword + "  OK. I will go to get them for you."; 
             Speak(strSpeak);
+            sleep(5);   //暂停一会，等机器人把话说完再行动
+            nIndexWant = 0;
             nState = STATE_GOTO;
         }
     }
@@ -326,6 +352,11 @@ int main(int argc, char** argv)
         // 4、导航去指定航点
         if(nState == STATE_GOTO)
         {
+            int nNumWant = arObjectWant.size();
+            if(nIndexWant < nNumWant)
+            {
+                strGoto = arObjectWant[nIndexWant];
+            }
             srvName.request.name = strGoto;
             if (cliGetWPName.call(srvName))
             {
@@ -448,8 +479,20 @@ int main(int argc, char** argv)
             if(bPassDone == true)
             {
                 PassSwitch(false);
-                Speak("OK. What do you want next?");
-                nState = STATE_ASK;
+                nIndexWant ++;
+                int nNumWant = arObjectWant.size();
+                if(nIndexWant < nNumWant)
+                {
+                    string strSpeak = "OK. I am going to get the next , "+arObjectWant[nIndexWant];
+                    Speak(strSpeak);
+                    sleep(3);   //暂停一会，让机器人把话说完
+                    nState = STATE_GOTO;
+                }
+                else
+                {
+                    Speak("All is done! Do you want something else?");
+                    nState = STATE_ASK;
+                }
             }
         }
         
