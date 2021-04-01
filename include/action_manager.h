@@ -84,6 +84,7 @@ public:
 	int nVideoFrameCount;
 	VideoWriter* pVW;
 	std::string strImage;
+	bool bCaptureImage;
 
 	ros::Subscriber grab_result_sub;
 	ros::Subscriber pass_result_sub;

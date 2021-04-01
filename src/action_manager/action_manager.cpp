@@ -62,6 +62,8 @@ CActionManager::CActionManager()
     bPassDone = false;
     nVideoFrameCount = 0;
     pVW = NULL;
+    bCaptureImage = false;
+    strImage = "/home/robot/image.jpg";
 }
 
 CActionManager::~CActionManager()
@@ -92,6 +94,14 @@ void CActionManager::ProcColorCB(const sensor_msgs::ImageConstPtr& msg)
     {
         ROS_INFO("[rec video - %d]...",nVideoFrameCount);
         *pVW << image;
+        nVideoFrameCount ++;
+    }
+
+    if(bCaptureImage == true)
+    {
+        ROS_INFO("[Captrue Image] Filename = %s",strImage.c_str());
+        imwrite(strImage,cv_ptr->image);
+        bCaptureImage = false;
         nVideoFrameCount ++;
     }
 
@@ -400,6 +410,7 @@ bool CActionManager::Main()
             printf("[ActMgr] %d - capture image \n", nCurActIndex);
             nVideoFrameCount = 0;
             strImage = arAct[nCurActIndex].strTarget;
+            bCaptureImage = true;
 		}
         if ( nVideoFrameCount > 0)
         {
