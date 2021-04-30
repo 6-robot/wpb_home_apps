@@ -499,6 +499,21 @@ string ActionText(stAct* inAct)
         std::string retStr = stringStream.str();
         ActText += retStr;
     }
+    if(inAct->nAct == ACT_REC_VIDEO)
+    {
+        ActText = "拍摄视频 ";
+        ActText += inAct->strTarget;
+    }
+    if(inAct->nAct == ACT_PLAY_VIDEO)
+    {
+        ActText = "播放视频 ";
+        ActText += inAct->strTarget;
+    }
+    if(inAct->nAct == ACT_CAP_IMAGE)
+    {
+        ActText = "保存视觉图像 ";
+        ActText += inAct->strTarget;
+    }
     return ActText;
 }
 
