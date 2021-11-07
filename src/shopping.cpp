@@ -491,6 +491,7 @@ int main(int argc, char** argv)
                 else
                 {
                     Speak("All is done! Do you want something else?");
+                    arObjectWant.clear();
                     nState = STATE_ASK;
                 }
             }
