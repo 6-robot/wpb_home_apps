@@ -55,6 +55,7 @@ using namespace std;
 #define STATE_GRAB      4
 #define STATE_COMEBACK  5
 #define STATE_PASS      6
+#define STATE_END       7
 
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 static string strGoto;
@@ -381,9 +382,19 @@ int main(int argc, char** argv)
                     if(ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
                     {
                         ROS_INFO("Arrived at %s!",strGoto.c_str());
-                        Speak("OK. I am taking it.");
-                        nState = STATE_GRAB;
-                        nDelay = 0;
+                        // 如果到达的是"start"航点，则不执行抓取，任务结束。
+                        int nFindIndex = strGoto.find("start");
+                        if( nFindIndex >= 0 )
+                        {
+                            Speak("I have got to start.Mission complete.");
+                            nState = STATE_END;
+                        }
+                        else
+                        {
+                            Speak("OK. I am taking it.");
+                            nState = STATE_GRAB;
+                            nDelay = 0;
+                        }
                     }
                     else
                     {
