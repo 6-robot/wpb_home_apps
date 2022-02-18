@@ -381,7 +381,7 @@ bool CActionManager::Main()
                 delete pVW;
                 pVW = NULL;
             }
-            // pVW = new VideoWriter(arAct[nCurActIndex].strTarget, CV_FOURCC('M', 'J', 'P', 'G'), 25.0, Size(960, 540)); 
+            pVW = new VideoWriter(arAct[nCurActIndex].strTarget, cv::VideoWriter::fourcc('M','J','P','G') , 25.0, Size(960, 540)); 
             nToRecoFrame = arAct[nCurActIndex].nDuration *25;
 		}
         if ( nVideoFrameCount >= nToRecoFrame )
