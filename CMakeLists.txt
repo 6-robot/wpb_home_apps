@@ -343,3 +343,11 @@ add_dependencies(object_find ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORT
 target_link_libraries(object_find
   ${catkin_LIBRARIES}
 )
+
+add_executable(wpb_home_wp_grab
+  src/wpb_home_wp_grab.cpp
+)
+add_dependencies(wpb_home_wp_grab ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(wpb_home_wp_grab
+  ${catkin_LIBRARIES}
+)
